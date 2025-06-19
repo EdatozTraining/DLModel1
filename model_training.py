@@ -52,6 +52,7 @@ def train_model(model, train_generator, val_generator, epochs=10):
     
     return model, train_generator.class_indices
 
+#Mainmethod
 def main():
     train_dir = 'dataset/train'
     val_dir = 'dataset/validation'
