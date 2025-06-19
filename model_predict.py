@@ -1,102 +1,50 @@
 import tensorflow as tf
-from tensorflow.keras.applications import VGG16
-from tensorflow.keras.preprocessing.image import ImageDataGenerator
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Dense, Flatten, Dropout
-from tensorflow.keras.optimizers import Adam
-import matplotlib.pyplot as plt
-import json
+import numpy as np
 import os
+import json
+from tensorflow.keras.preprocessing import image
+from PIL import Image
+import matplotlib.pyplot as plt
 
-def create_transfer_learning_model(num_classes):
-    base_model = VGG16(weights='imagenet', include_top=False, input_shape=(224, 224, 3))
-    base_model.trainable = False
+def load_model(model_path='transfer_learning_model.h5'):
+    return tf.keras.models.load_model(model_path)
 
-    model = Sequential([
-        base_model,
-        Flatten(),
-        Dense(512, activation='relu'),
-        Dropout(0.5),
-        Dense(num_classes, activation='softmax')
-    ])
+def load_class_indices(json_path='class_indices.json'):
+    with open(json_path, 'r') as f:
+        return json.load(f)
 
-    return model
+def predict_image(model, img_path, class_indices):
+    img = image.load_img(img_path, target_size=(224, 224))
+    img_array = image.img_to_array(img) / 255.0
+    img_array = np.expand_dims(img_array, axis=0)
+    
+    predictions = model.predict(img_array)
+    predicted_index = np.argmax(predictions[0])
+    confidence = predictions[0][predicted_index]
 
-def prepare_data(train_dir, val_dir, img_size=(224, 224), batch_size=32):
-    train_datagen = ImageDataGenerator(
-        rescale=1./255,
-        rotation_range=20,
-        width_shift_range=0.2,
-        height_shift_range=0.2,
-        horizontal_flip=True
-    )
+    reverse_map = {v: k for k, v in class_indices.items()}
+    predicted_class = reverse_map[predicted_index]
+    return predicted_class, confidence
 
-    val_datagen = ImageDataGenerator(rescale=1./255)
-
-    train_generator = train_datagen.flow_from_directory(
-        train_dir,
-        target_size=img_size,
-        batch_size=batch_size,
-        class_mode='categorical'
-    )
-
-    validation_generator = val_datagen.flow_from_directory(
-        val_dir,
-        target_size=img_size,
-        batch_size=batch_size,
-        class_mode='categorical'
-    )
-
-    return train_generator, validation_generator
-
-def train_model(model, train_generator, validation_generator, epochs=10):
-    model.compile(
-        optimizer=Adam(learning_rate=0.001),
-        loss='categorical_crossentropy',
-        metrics=['accuracy']
-    )
-
-    history = model.fit(
-        train_generator,
-        validation_data=validation_generator,
-        epochs=epochs,
-        verbose=1
-    )
-
-    return history
-
-def plot_training_history(history):
-    plt.figure(figsize=(12, 4))
-    plt.subplot(1, 2, 1)
-    plt.plot(history.history['accuracy'], label='Train Acc')
-    plt.plot(history.history['val_accuracy'], label='Val Acc')
-    plt.title('Model Accuracy')
-    plt.legend()
-
-    plt.subplot(1, 2, 2)
-    plt.plot(history.history['loss'], label='Train Loss')
-    plt.plot(history.history['val_loss'], label='Val Loss')
-    plt.title('Model Loss')
-    plt.legend()
-
-    plt.tight_layout()
+def display_prediction(img_path, class_name, confidence):
+    img = Image.open(img_path)
+    plt.imshow(img)
+    plt.title(f"Prediction: {class_name} ({confidence:.2%})")
+    plt.axis('off')
     plt.show()
 
 def main():
-    train_dir = 'Dataset/train'
-    val_dir = 'Dataset/validation'
-    num_classes = len(os.listdir(train_dir))
+    model = load_model()
+    class_indices = load_class_indices()
 
-    model = create_transfer_learning_model(num_classes)
-    train_generator, val_generator = prepare_data(train_dir, val_dir)
-    history = train_model(model, train_generator, val_generator, epochs=10)
-    plot_training_history(history)
+    img_path = input("Enter image path: ").strip()
+    if not os.path.exists(img_path):
+        print("Image not found.")
+        return
 
-    model.save('transfer_learning_model.h5')
-
-    # Save class indices
-    with open('class_indices.json', 'w') as f:
-        json.dump({v: k for k, v in train_generator.class_indices.items()}, f)
+    class_name, confidence = predict_image(model, img_path, class_indices)
+    print(f"\nPrediction: {class_name}\nConfidence: {confidence:.2%}")
+    display_prediction(img_path, class_name, confidence)
 
 if __name__ == "__main__":
     main()
