@@ -18,7 +18,7 @@ def create_transfer_learning_model(num_classes):
         Dense(num_classes, activation='softmax')
     ])
     return model
-
+#Prepare Data
 def prepare_data(train_dir, val_dir, img_size=(224, 224), batch_size=32):
     train_datagen = ImageDataGenerator(
         rescale=1./255,
