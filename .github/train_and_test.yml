@@ -2,6 +2,8 @@ name: Train and Predict Test
 
 on:
   push:
+    branches:
+      - main
     paths:
       - '**.py'
       - '**.json'
@@ -25,4 +27,4 @@ jobs:
 
       - name: Test prediction
         run: |
-          python model_predict.py < test-image.jpeg || echo "Skipping input"
+          python model_predict.py test-image.jpeg || echo "Skipping input"
